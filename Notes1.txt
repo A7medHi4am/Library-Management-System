@@ -1,0 +1,8 @@
+Missing Features to Add:
+------------------
+*interfaces
+*Abstraction
+*Pricing System and its integration with the code
+* Loaned book not returned
+*Database
+*Logger (History of all events)
