@@ -1,0 +1,14 @@
+Added:
+----------
+* Used Interface & Abstraction to hide Library class
+* Reservation & LoanedBook classes updated
+* Created initial designs for program
+
+
+
+
+
+Missing Features to Add:
+------------------------
+*pricing system
+*database
