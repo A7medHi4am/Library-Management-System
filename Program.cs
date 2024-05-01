@@ -10,19 +10,35 @@ namespace Project
         [STAThread]
         static void Main()
         {
-           /* // To customize application configuration such as set high DPI settings or default font,
+            // To customize application configuration such as set high DPI settings or default font,
             // see https://aka.ms/applicationconfiguration.
             ApplicationConfiguration.Initialize();
-            Application.Run(new Form1());*/
-           Library NasrCity = new Library();
-           Library Shorouk = new Library();
+            Application.Run(new Login());
+           ILibrary NasrCity = new Library();
+           ILibrary Shorouk = new Library();
             Book Invincible = new Book("Invincible", "Tom walter", "Action", 0764356, 3, NasrCity);
             Member a = new Member(0, "Mohamad", "Nasr city", 01176423364, NasrCity);
-            Reservation z = new Reservation(Invincible, a);
+            Reservation z = new Reservation(Invincible, a, NasrCity);
+            DateTime loandate = DateTime.Now;
+            LoanedBook g = new LoanedBook(Invincible,a,loandate,14,NasrCity);
+            z.ReservationDetails();
         }
     }
 
-    class Library
+    interface ILibrary
+    {
+        void AddBook(Book book);
+        void AddMember(Member member);
+        void AddLoan(LoanedBook loan);
+        void RemoveMember(Member member);
+        void AddOverdue(Member member);
+        void RemoveOverdue(Member member);
+        void RemoveBook(Book book);
+        void RemoveLoan(LoanedBook loan);
+        void AddReservation(Reservation reservation);
+        void RemoveReservation(Reservation reservation);
+    }
+    public class Library : ILibrary
     {
         int maxLoanDuration = 30; //days
         int maxBooksPerMember = 5;
@@ -31,6 +47,7 @@ namespace Project
         private List<Member> members;
         private Dictionary<Book, int> availableBooks;
         private List<LoanedBook> loans;
+        private List<Member> overdueMembers;
         private List<Reservation> reservations;
 
 
@@ -39,54 +56,67 @@ namespace Project
             books = new List<Book>();
             members = new List<Member>();
             loans = new List<LoanedBook>();
+            overdueMembers = new List<Member>();
             reservations = new List<Reservation>();
         }
 
-        public void AddBook(Book book)
+         void ILibrary.AddBook(Book book)
         {
             books.Add(book);
         }
-        public void AddMember(Member member)
+         void ILibrary.AddMember(Member member)
         {
             members.Add(member);
         }
-        public void AddLoan(LoanedBook loan)
+         void ILibrary.AddLoan(LoanedBook loan)
         {
             loans.Add(loan);
         }
-        public void RemoveMember(Member member)
+         void ILibrary.RemoveMember(Member member)
         {
             members.Remove(member);
         }
-        public void RemoveBook(Book book)
+        void ILibrary.RemoveBook(Book book)
         {
             books.Remove(book);
         }
-        public void RemoveLoan(LoanedBook loan)
+        void ILibrary.RemoveLoan(LoanedBook loan)
         {
             loans.Remove(loan);
         }
-        public void AddReservation(Reservation reservation)
+         void ILibrary.AddReservation(Reservation reservation)
         {
             reservations.Add(reservation);
+        }
+        void ILibrary.RemoveReservation(Reservation reservation)
+        {
+            reservations.Remove(reservation);
+        }
+        void ILibrary.AddOverdue(Member member)
+        {
+            overdueMembers.Add(member);
+        }
+        void ILibrary.RemoveOverdue(Member member)
+        {
+            overdueMembers.Remove(member);
         }
     }
 
     class Book : Library
     {
-        string Title;
+        public string Title;
         string Author;
         string Genre;
         int ISBN;
-        int NumberOfCopys;
+        int TotalCopies;
         bool available = true; //book exists by default when created
-        public Book(string Title, string Author,string Genre, int ISBN,int numberOfCopys,Library library)
+        public Book(string Title, string Author,string Genre, int ISBN,int TotalCopies,ILibrary library)
         {
             this.Title = Title;
             this.Author = Author;
             this.Genre = Genre;
             this.ISBN = ISBN;
-            this.NumberOfCopys = numberOfCopys;
+            this.TotalCopies = TotalCopies;
 
             library.AddBook(this);
 
@@ -100,8 +130,8 @@ namespace Project
         }
         public void DecrementBook(Book book)
         {
-            book.NumberOfCopys = book.NumberOfCopys - 1;
-            if(NumberOfCopys <= 0)
+            book.TotalCopies = book.TotalCopies - 1;
+            if(TotalCopies <= 0)
                 available = false;
         }
     }
@@ -111,7 +141,8 @@ namespace Project
         public string Name;
         public string Address;
         public int Number;
-        public Member(int iD, string name, string address, int number, Library library)
+        public bool isOverdue = false;
+        public Member(int iD, string name, string address, int number, ILibrary library)
         {
             ID = iD;
             Name = name;
@@ -119,11 +150,14 @@ namespace Project
             Number = number;
             library.AddMember(this);
         }
-        public void DeleteMember(Library library,Member member)
+        public void DeleteMember(ILibrary library,Member member)
         {
             library.RemoveMember(member);
         }
-        
+        public void MarkAsOverdue()
+        {
+            isOverdue = true;
+        }
     }
 
     class LoanedBook : Library
@@ -134,7 +168,7 @@ namespace Project
         public DateTime DueDate { get; set; }
         public bool returned {  get; set; }
 
-        public LoanedBook(Book book, Member member, DateTime loanDate, int LoanDurationDays, Library library)
+        public LoanedBook(Book book, Member member, DateTime loanDate, int LoanDurationDays, ILibrary library)
         {
             Book = book;
             Member = member;
@@ -145,10 +179,22 @@ namespace Project
             book.DecrementBook(book);
 
         }
-        public void MarkAsReturned(LoanedBook loanedBook)
+        public void MarkAsReturned(ILibrary library,LoanedBook loanedBook)
         {
             loanedBook.returned = true;
-            RemoveLoan(loanedBook);
+            library.RemoveLoan(loanedBook);
+        }
+        public void checkloan(ILibrary library,Member member)
+        {
+            if(DateTime.Now > DueDate || !returned)
+            {
+                library.AddOverdue(member);
+                member.isOverdue = true;
+            }
+            else
+            {
+                MessageBox.Show("No loans Overdue.");
+            }
         }
 
     }
@@ -158,26 +204,29 @@ namespace Project
         public Member Member { get; set; }
         public DateTime ReservationDate { get; set; } 
         public bool IsActive { get; set; }
-        public Reservation(Book book, Member member)
+        public Reservation(Book book, Member member, ILibrary library)
         {
             Book= book;
             Member = member;
             ReservationDate = DateTime.Now;
             IsActive = true;
             book.DecrementBook(book);
+            library.AddReservation(this);
         }
-        public void CancelReservation()
+        public void CancelReservation(ILibrary library)
         {
             IsActive = false;
+            library.RemoveReservation(this);
         }
-        public void ReservationConfirmed(LoanedBook loanedBook)
+        public void ReservationConfirmed(ILibrary library,LoanedBook loanedBook)
         {
             IsActive = false;
-            AddLoan(loanedBook);
+            library.AddLoan(loanedBook);
+            library.RemoveReservation(this);
         }
         public string ReservationDetails()
         {
-            return $"Reserved Book : {Book}, Reserving Member : {Member}";
+            return $"Reserved Book : {Book.Title}, Reserving Member : {Member.Name}";
         }
         public bool IsReservationValid()
         {
@@ -187,6 +236,58 @@ namespace Project
     
     
     }
+    //Fee Calculator
+    public interface Pricing
+    {
+        decimal CalculateLateFee(int daysLate);
+        decimal CalculateMembershipFee();
+        decimal CalculateRentalFee(int daysRented);
+    }
+
+    public class BookPricing : Pricing
+    {
+        private decimal lateFeePerDay = 0.50m;
+        private decimal membershipFee = 10.00m;
+        private decimal rentalFeePerDay = 1.00m;
+
+        public decimal CalculateLateFee(int daysLate)
+        {
+            return lateFeePerDay * daysLate;
+        }
+
+        public decimal CalculateMembershipFee()
+        {
+            return membershipFee;
+        }
+
+        public decimal CalculateRentalFee(int daysRented)
+        {
+            return rentalFeePerDay * daysRented;
+        }
+    }
+
+    public class DVDPricing : Pricing
+    {
+        private decimal lateFeePerDay = 1.00m;
+        private decimal membershipFee = 15.00m;
+        private decimal rentalFeePerDay = 2.00m;
+
+        public decimal CalculateLateFee(int daysLate)
+        {
+            return lateFeePerDay * daysLate;
+        }
+
+        public decimal CalculateMembershipFee()
+        {
+            return membershipFee;
+        }
+
+        public decimal CalculateRentalFee(int daysRented)
+        {
+            return rentalFeePerDay * daysRented;
+        }
+    }
+
 
 
 }
